@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chess960 core — tests</title>
+  <style>
+    body { font: 14px/1.5 ui-monospace, "IBM Plex Mono", monospace;
+           background: #1B2027; color: #E8E6E1; margin: 0; padding: 24px; }
+    h1 { font-size: 18px; font-weight: 600; }
+    #summary { font-size: 16px; padding: 8px 0 16px; }
+    .pass { color: #7FB069; }
+    .fail { color: #E06C5A; }
+    .signal { color: #E0A63C; }
+    ul { list-style: none; padding: 0; margin: 0; }
+    li { padding: 2px 0; }
+    li.fail { font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>Chess960 core — tests</h1>
+  <div id="summary">running…</div>
+  <ul id="results"></ul>
+
+  <script type="module">
+    import {
+      ERRORS, squareColor, validateBackRank,
+      idToBackRank, backRankToId,
+      backRankToFEN, castlingField, toStandardCastling,
+    } from '../core/index.js';
+
+    // --- 30-line harness ---------------------------------------------------
+    let passed = 0, failed = 0;
+    const results = document.getElementById('results');
+    function record(ok, msg) {
+      ok ? passed++ : failed++;
+      const li = document.createElement('li');
+      li.className = ok ? 'pass' : 'fail';
+      li.textContent = `${ok ? 'PASS' : 'FAIL'}  ${msg}`;
+      results.appendChild(li);
+      (ok ? console.log : console.error)(`${ok ? 'PASS' : 'FAIL'}  ${msg}`);
+    }
+    const ok = (cond, msg) => record(!!cond, msg);
+    const eq = (a, b, msg) =>
+      record(a === b, `${msg}${a === b ? '' : `  (got ${JSON.stringify(a)}, expected ${JSON.stringify(b)})`}`);
+    function throws(fn, msg) {
+      let threw = false;
+      try { fn(); } catch { threw = true; }
+      record(threw, msg);
+    }
+
+    // --- Scharnagl round-trip and anchors ----------------------------------
+    let roundTripOk = true;
+    for (let id = 0; id < 960; id++) {
+      if (backRankToId(idToBackRank(id)) !== id) { roundTripOk = false; break; }
+    }
+    ok(roundTripOk, 'idToBackRank ∘ backRankToId is identity for all 960 IDs');
+    eq(idToBackRank(518), 'RNBQKBNR', 'ID 518 is the standard back rank');
+    eq(backRankToId('RNBQKBNR'), 518, 'standard back rank is ID 518');
+
+    // --- Structural invariants across all 960 ------------------------------
+    let allValid = true, bishopsOpposite = true, kingBetween = true;
+    for (let id = 0; id < 960; id++) {
+      const rank = idToBackRank(id);
+      if (!validateBackRank(rank).valid) { allValid = false; break; }
+      const bf = [...rank].map((c, i) => (c === 'B' ? i : -1)).filter((i) => i >= 0);
+      if (squareColor(bf[0]) === squareColor(bf[1])) bishopsOpposite = false;
+      const k = rank.indexOf('K'), r1 = rank.indexOf('R'), r2 = rank.lastIndexOf('R');
+      if (!(k > r1 && k < r2)) kingBetween = false;
+    }
+    ok(allValid, 'every generated position validates as legal');
+    ok(bishopsOpposite, 'bishops on opposite colours in all 960');
+    ok(kingBetween, 'king between the rooks in all 960');
+
+    // --- A legal non-standard example --------------------------------------
+    // NOTE: the CLAUDE.md example "BNRNQKBR" is actually illegal — its bishops
+    // sit on a and g, both dark squares. We assert its rejection below, and use
+    // "BNRBQKNR" (rooks on c and h) as the legal non-standard example.
+    ok(validateBackRank('BNRBQKNR').valid, 'BNRBQKNR validates as legal');
+
+    // --- One specific failing string per validation rule -------------------
+    const failsWith = (str, err, label) => {
+      const { valid, errors } = validateBackRank(str);
+      record(!valid && errors.includes(err), `${label}: "${str}" → ${err}`);
+    };
+    failsWith('RNBQKB', ERRORS.length, 'length rule');
+    failsWith('NNBQKBNR', ERRORS.rooks, 'rook-count rule');       // R=1
+    failsWith('RRBQKBBR', ERRORS.knights, 'knight-count rule');   // N=0
+    failsWith('RNNQKNNR', ERRORS.bishops, 'bishop-count rule');   // B=0
+    failsWith('RNBNKBNR', ERRORS.queens, 'queen-count rule');     // Q=0
+    failsWith('RNBQQBNR', ERRORS.kings, 'king-count rule');       // K=0
+    failsWith('RBNBQKNR', ERRORS.bishopColor, 'bishop-colour rule'); // B on b,d
+    failsWith('KRBNQBNR', ERRORS.kingBetweenRooks, 'king-between-rooks rule');
+    // The doc's mistaken example is illegal for the bishop-colour reason:
+    failsWith('BNRNQKBR', ERRORS.bishopColor, 'BNRNQKBR is illegal (bishops on a,g)');
+
+    // --- FEN generation ----------------------------------------------------
+    eq(backRankToFEN('RNBQKBNR'),
+      'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w AHah - 0 1',
+      'standard FEN uses X-FEN castling AHah');
+    eq(castlingField('BNRBQKNR'), 'CHch', 'rooks on c and h give CHch');
+    ok(backRankToFEN('BNRBQKNR').includes(' w CHch '),
+      'non-standard FEN carries the CHch castling field');
+
+    // --- toStandardCastling ------------------------------------------------
+    eq(toStandardCastling(backRankToFEN('RNBQKBNR')),
+      'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      'toStandardCastling round-trips ID 518 to KQkq');
+    ok(toStandardCastling('8/8/8/8/8/8/8/8 w - - 0 1').includes(' - '),
+      'toStandardCastling leaves "-" untouched');
+
+    // --- Summary -----------------------------------------------------------
+    const summary = document.getElementById('summary');
+    summary.textContent = `${passed} passed, ${failed} failed`;
+    summary.className = failed === 0 ? 'pass' : 'fail';
+    console.log(`\n${passed} passed, ${failed} failed`);
+  </script>
+</body>
+</html>
