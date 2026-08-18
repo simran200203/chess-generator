@@ -27,6 +27,7 @@
       ERRORS, squareColor, validateBackRank,
       idToBackRank, backRankToId,
       backRankToFEN, castlingField, toStandardCastling,
+      legalCompletions, mulberry32,
     } from '../core/index.js';
 
     // --- 30-line harness ---------------------------------------------------
@@ -108,6 +109,23 @@
       'toStandardCastling round-trips ID 518 to KQkq');
     ok(toStandardCastling('8/8/8/8/8/8/8/8 w - - 0 1').includes(' - '),
       'toStandardCastling leaves "-" untouched');
+
+    // --- legalCompletions --------------------------------------------------
+    eq(legalCompletions(new Array(8).fill(null)).length, 960,
+      'empty rank has 960 legal completions');
+    const std = legalCompletions([...'RNBQKBNR']);
+    eq(std.length, 1, 'a fully-placed legal rank completes to exactly itself');
+    eq(std[0], 'RNBQKBNR', 'that completion is the rank itself');
+    eq(legalCompletions(['Q', 'Q', null, null, null, null, null, null]).length, 0,
+      'an impossible placement (two queens) has no completion');
+    const rookA = legalCompletions(['R', null, null, null, null, null, null, null]);
+    ok(rookA.length > 1 && rookA.every((r) => r[0] === 'R'),
+      'a rook on file a leaves many completions, all with a rook on a');
+
+    // --- mulberry32 determinism --------------------------------------------
+    const g1 = mulberry32(12345), g2 = mulberry32(12345);
+    ok(g1() === g2() && g1() === g2(), 'same seed yields the same stream');
+    ok(mulberry32(1)() !== mulberry32(2)(), 'different seeds diverge');
 
     // --- Summary -----------------------------------------------------------
     const summary = document.getElementById('summary');

@@ -7,3 +7,5 @@
 export { ERRORS, squareColor, validateBackRank } from './backrank.js';
 export { idToBackRank, backRankToId } from './scharnagl.js';
 export { backRankToFEN, castlingField, toStandardCastling } from './fen.js';
+export { legalCompletions } from './complete.js';
+export { mulberry32, coerceSeed } from './random.js';

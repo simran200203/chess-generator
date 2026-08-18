@@ -1,0 +1,35 @@
+/* Design tokens — §10, "dark academia" register: chess club, antique book,
+   burgundy wine. Timeless, sophisticated, focused. Gold is demoted to tiny
+   accents only (dots, hairlines) — never a primary element. */
+
+:root {
+  /* Palette */
+  --ground: #1c1514;
+  --panel: #261b19;
+  --panel-hover: #30201e;
+  --board-dark: #713c3f;
+  --board-light: #e7d8bc;
+  --accent: #7a2638;
+  --accent-hover: #8d3445;
+  --text: #f1e6d0;
+  --text-secondary: #a99587;
+  --heading: #9a4652;
+  --gold: #b28a52;
+  --placeholder: #6f6258;
+  --border: #4a302c;
+
+  /* Pieces (fills baked into the vendored SVGs; kept here for reference) */
+  --piece-light: #f1e6d0;
+  --piece-dark: #211817;
+
+  /* Type — vendored .woff2 drops in later; system stack until then (§10) */
+  --serif: "Spectral", Georgia, "Times New Roman", serif;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Space + motion */
+  --gap: 16px;
+  --radius: 8px;
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}

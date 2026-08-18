@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chess960 game generator</title>
+  <link rel="stylesheet" href="./styles/tokens.css" />
+  <link rel="stylesheet" href="./styles/app.css" />
+</head>
+<body>
+  <!-- Pieces are vendored, recoloured Cburnett SVGs in pieces/ (see
+       pieces/CREDITS.md), rendered as <img> by the board. -->
+
+  <!-- LAUNCH ------------------------------------------------------------- -->
+  <section id="launch" class="screen">
+    <div class="launch">
+      <h1 class="launch__title">Chess960 game generator</h1>
+      <p class="launch__sub">
+        Set up a position, analyse it with a strong engine, and generate a
+        complete game in which a chosen side wins. Choose a mode to begin.
+      </p>
+      <div class="launch__modes">
+        <button class="mode-card" data-role="mode-chess">
+          <div class="mode-card__name">Chess</div>
+          <div class="mode-card__desc">Standard starting position, ready to work.</div>
+        </button>
+        <button class="mode-card" data-role="mode-chess960">
+          <div class="mode-card__name">Chess960</div>
+          <div class="mode-card__desc">Build a starting position, then continue.</div>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SETUP (Chess960) --------------------------------------------------- -->
+  <section id="setup" class="screen">
+    <div class="topbar">
+      <h2>Set up the back rank</h2>
+      <span class="topbar__hint">Drag from the tray, type a rank, or randomise.</span>
+    </div>
+    <div class="setup">
+      <div class="setup__board">
+        <div data-role="board"></div>
+        <div class="tray" data-role="tray" aria-label="piece tray"></div>
+      </div>
+      <div class="setup__panel">
+        <div data-role="dial"></div>
+        <div class="setup__status" data-role="status" aria-live="polite"></div>
+        <div class="setup__complete" data-role="complete"></div>
+
+        <div class="field">
+          <label for="rank-input">Type a back rank</label>
+          <input id="rank-input" data-role="rank-input" maxlength="8"
+                 autocomplete="off" spellcheck="false" placeholder="e.g. BNRBQKNR" />
+        </div>
+
+        <div class="field field--row">
+          <div class="field" style="flex:1">
+            <label for="seed-input">Seed</label>
+            <input id="seed-input" data-role="seed-input" autocomplete="off"
+                   spellcheck="false" placeholder="blank = random" />
+          </div>
+          <button class="btn" data-role="randomise">Randomise</button>
+        </div>
+
+        <div class="trirep" data-role="trirep">
+          <div class="trirep__row"><span class="trirep__label">back rank</span>
+            <span class="trirep__value" data-role="tr-rank"></span></div>
+          <div class="trirep__row"><span class="trirep__label">position id</span>
+            <span class="trirep__value" data-role="tr-id"></span></div>
+          <div class="trirep__row"><span class="trirep__label">fen</span>
+            <span class="trirep__value" data-role="tr-fen"></span></div>
+        </div>
+
+        <button class="btn btn--primary" data-role="board-ready" disabled>Board Ready</button>
+        <button class="btn btn--ghost" data-role="back-launch">Back</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- WORKSPACE (minimal shell for phase 2) ------------------------------ -->
+  <section id="workspace" class="screen">
+    <div class="topbar">
+      <h2>Workspace</h2>
+      <span class="topbar__hint">Analyse and Generate arrive in later phases.</span>
+    </div>
+    <div class="workspace">
+      <div class="setup__board">
+        <div data-role="board"></div>
+      </div>
+      <div class="workspace__panel">
+        <div class="ws-placeholder">
+          Starting position ready. The Analyse and Generate panels are not built yet.
+        </div>
+        <div class="trirep">
+          <div class="trirep__row"><span class="trirep__label">back rank</span>
+            <span class="trirep__value" data-role="ws-rank"></span></div>
+          <div class="trirep__row"><span class="trirep__label">position id</span>
+            <span class="trirep__value" data-role="ws-id"></span></div>
+          <div class="trirep__row"><span class="trirep__label">fen</span>
+            <span class="trirep__value" data-role="ws-fen"></span></div>
+          <div class="trirep__row"><span class="trirep__label">fen (kqkq)</span>
+            <span class="trirep__value" data-role="ws-fen-std"></span></div>
+        </div>
+        <div class="ws-nav">
+          <button class="btn" data-role="ws-reset">Reset</button>
+          <button class="btn btn--ghost" data-role="ws-back">Back</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script type="module" src="./ui/app.js"></script>
+</body>
+</html>
