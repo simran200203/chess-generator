@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Engine + castling — tests</title>
+  <style>
+    body { font: 14px/1.5 ui-monospace, "IBM Plex Mono", monospace;
+           background: #1c1514; color: #f1e6d0; margin: 0; padding: 24px; }
+    h1 { font-size: 18px; font-weight: 600; }
+    #summary { font-size: 16px; padding: 8px 0 16px; }
+    .pass { color: #9fb069; } .fail { color: #cf7f57; } .run { color: #b28a52; }
+    ul { list-style: none; padding: 0; margin: 0; }
+    li { padding: 2px 0; } li.fail { font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>Engine + castling — tests</h1>
+  <div id="summary" class="run">loading engine…</div>
+  <ul id="results"></ul>
+
+  <script type="module">
+    import { createEngine, parseAnalysis } from '../engine/engine.js';
+    import { describeMove, toEngineUci, kingSquare } from '../engine/castling.js';
+    import { idToBackRank, backRankToFEN } from '../core/index.js';
+
+    let passed = 0, failed = 0;
+    const results = document.getElementById('results');
+    const summary = document.getElementById('summary');
+    function record(ok, msg) {
+      ok ? passed++ : failed++;
+      const li = document.createElement('li');
+      li.className = ok ? 'pass' : 'fail';
+      li.textContent = `${ok ? 'PASS' : 'FAIL'}  ${msg}`;
+      results.appendChild(li);
+      (ok ? console.log : console.error)(`${ok ? 'PASS' : 'FAIL'}  ${msg}`);
+    }
+    const ok = (c, m) => record(!!c, m);
+    const eq = (a, b, m) => record(a === b, `${m}${a === b ? '' : `  (got ${JSON.stringify(a)}, expected ${JSON.stringify(b)})`}`);
+
+    const fileChar = (i) => String.fromCharCode(97 + i);
+
+    /**
+     * Minimal legal FEN in which the side to move can castle on one side:
+     * white king + the chosen rook on rank 1, a safely-parked black king,
+     * X-FEN castling granting just that rook.
+     */
+    function castleFen(rank, kingFile, rookFile) {
+      const rowMap = {};
+      rowMap[kingFile] = 'K';
+      rowMap[rookFile] = 'R';
+      const rank1 = buildRow(rowMap);
+      // Black king on a file that is neither the rook's (avoids a check) nor the king's.
+      let bkFile = 0;
+      while (bkFile === kingFile || bkFile === rookFile) bkFile++;
+      const rank8 = buildRow({ [bkFile]: 'k' });
+      const castling = fileChar(rookFile).toUpperCase();
+      return `${rank8}/8/8/8/8/8/8/${rank1} w ${castling} - 0 1`;
+    }
+    function buildRow(map) {
+      let s = '', empty = 0;
+      for (let f = 0; f < 8; f++) {
+        if (map[f]) { if (empty) { s += empty; empty = 0; } s += map[f]; }
+        else empty++;
+      }
+      return s + (empty || '');
+    }
+
+    async function main() {
+      const engine = createEngine();
+      await engine.init();
+
+      // --- Sanity: perft, applyMoves, analyse ----------------------------
+      const start = backRankToFEN('RNBQKBNR');
+      const startMoves = await engine.legalMoves(start);
+      eq(startMoves.length, 20, 'startpos has 20 legal moves (perft 1)');
+
+      const afterE4E5 = await engine.applyMoves(start, ['e2e4', 'e7e5']);
+      ok(afterE4E5.startsWith('rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w'),
+        `applyMoves 1.e4 e5 → ${afterE4E5}`);
+
+      const lines = await engine.analyse(start, { depth: 8, multipv: 3 });
+      ok(lines.length >= 1 && lines.length <= 3, `analyse returns ${lines.length} pv line(s)`);
+      ok(lines.every((l) => l.pv.length > 0 && (l.scoreType === 'cp' || l.scoreType === 'mate')),
+        'each analysis line has a score and a non-empty pv');
+
+      // --- Non-castling translation is a pass-through --------------------
+      ok(!describeMove(start, 'e2e4').isCastle, 'e2e4 is not classified as castling');
+      eq(toEngineUci(start, 'e2', 'e4'), 'e2e4', 'toEngineUci passes a normal move through');
+
+      // --- Gotcha 2: king-takes-rook castling across all 960 -------------
+      let castleChecks = 0, castleFails = 0;
+      const badExamples = [];
+      for (let id = 0; id < 960; id++) {
+        const rank = idToBackRank(id);
+        const kf = rank.indexOf('K');
+        const rooks = [rank.indexOf('R'), rank.lastIndexOf('R')];
+        for (const side of ['K', 'Q']) {
+          const rookFile = side === 'K' ? rooks.find((f) => f > kf) : rooks.find((f) => f < kf);
+          const fen = castleFen(rank, kf, rookFile);
+          const engineUci = `${fileChar(kf)}1${fileChar(rookFile)}1`; // king-takes-rook
+          const moves = await engine.legalMoves(fen);
+          castleChecks++;
+
+          const listed = moves.includes(engineUci);
+          const d = describeMove(fen, engineUci);
+          const expectKingTo = `${side === 'K' ? 'g' : 'c'}1`;
+          const roundTrip = toEngineUci(fen, d.from, d.kingTo, { castle: side });
+          const good = listed && d.isCastle && d.side === side
+            && d.kingTo === expectKingTo && roundTrip === engineUci;
+          if (!good) {
+            castleFails++;
+            if (badExamples.length < 6) {
+              badExamples.push(`id ${id} ${rank} ${side}: fen=${fen} engineUci=${engineUci} listed=${listed} desc=${JSON.stringify(d)} rt=${roundTrip}`);
+            }
+          }
+        }
+        if (id % 120 === 0) summary.textContent = `castling: ${id}/960…`;
+      }
+      ok(castleFails === 0,
+        `king-takes-rook castling verified for all 960 positions, both sides (${castleChecks} checks)`);
+      for (const ex of badExamples) record(false, ex);
+
+      // --- parseAnalysis unit check (no worker) --------------------------
+      const parsed = parseAnalysis([
+        'info depth 5 multipv 1 score cp 30 pv e2e4 e7e5',
+        'info depth 6 multipv 1 score cp 34 pv e2e4 e7e5 g1f3',
+        'info depth 6 multipv 2 score mate 3 pv d2d4',
+      ]);
+      eq(parsed.length, 2, 'parseAnalysis keeps one entry per multipv');
+      eq(parsed[0].score, 34, 'parseAnalysis keeps the deepest info for multipv 1');
+      eq(parsed[1].scoreType, 'mate', 'parseAnalysis reads mate scores');
+
+      engine.quit();
+      summary.textContent = `${passed} passed, ${failed} failed`;
+      summary.className = failed === 0 ? 'pass' : 'fail';
+      window.__summary = summary.textContent;
+      window.__done = true;
+    }
+
+    main().catch((e) => {
+      record(false, `harness threw: ${e && e.message}`);
+      summary.textContent = `${passed} passed, ${failed} failed (harness error)`;
+      summary.className = 'fail';
+      window.__summary = summary.textContent;
+      window.__done = true;
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+Stockfish WASM — vendored engine binaries
+=========================================
+
+Engine:   Stockfish 18 (Lite, single-threaded WASM build)
+Source:   npm package "stockfish" v18.0.8 by nmrugg (Nathan Rugg)
+          https://www.npmjs.com/package/stockfish/v/18.0.8
+Files:    bin/stockfish-18-lite-single.js   -> engine/stockfish.js   (renamed, bytes unchanged)
+          bin/stockfish-18-lite-single.wasm -> engine/stockfish.wasm (renamed, bytes unchanged)
+Fetched:  https://unpkg.com/stockfish@18.0.8/bin/stockfish-18-lite-single.js
+          https://unpkg.com/stockfish@18.0.8/bin/stockfish-18-lite-single.wasm
+Licence:  GPLv3 — see engine/LICENSE.stockfish
+
+Single-threaded build: needs no SharedArrayBuffer and therefore no COOP/COEP
+headers, so it runs under a plain "python3 -m http.server". The NNUE network is
+embedded in the .wasm (no separate net file).
+
+SHA-256
+-------
+5243fd9b276cab7dfe3ad1d43ab9ead73568fac76468c614242977a210c4a391  engine/stockfish.js
+a8fbc05ec6920b56d7485826dcb02c5ffd2826bcbf751cf973046f237a9096f1  engine/stockfish.wasm
+
+Verify from the repository root:
+
+    shasum -a 256 engine/stockfish.js engine/stockfish.wasm

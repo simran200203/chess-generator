@@ -14,7 +14,29 @@ python3 -m http.server 8000
 # then open http://localhost:8000
 ```
 
-Open `http://localhost:8000/tests/test.html` to run the core test suite.
+Open `http://localhost:8000/tests/test.html` for the core test suite, and
+`http://localhost:8000/tests/engine.html` for the engine + castling tests
+(loads the WASM engine and verifies king-takes-rook castling across all 960
+positions).
+
+## Engine
+
+Chess rules and analysis come from **Stockfish 18** (Lite, single-threaded WASM),
+vendored in `engine/`. The single-threaded build needs no `SharedArrayBuffer`,
+so it runs under a plain `python3 -m http.server` with no special headers.
+
+- Source: npm `stockfish@18.0.8` (files `bin/stockfish-18-lite-single.{js,wasm}`),
+  committed as `engine/stockfish.{js,wasm}` (renamed only — bytes unchanged).
+- SHA-256 checksums and the exact fetch URLs are in
+  [`engine/CHECKSUMS.txt`](engine/CHECKSUMS.txt). Verify with:
+
+  ```
+  shasum -a 256 engine/stockfish.js engine/stockfish.wasm
+  ```
+
+- Licence: Stockfish is **GPLv3** ([`engine/LICENSE.stockfish`](engine/LICENSE.stockfish)).
+  This project's own source is MIT; the vendored Stockfish binary remains under
+  its GPLv3 terms.
 
 ## Credits
 
