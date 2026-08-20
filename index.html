@@ -78,29 +78,37 @@
     </div>
   </section>
 
-  <!-- WORKSPACE (minimal shell for phase 2) ------------------------------ -->
+  <!-- WORKSPACE — Analyse mode ------------------------------------------- -->
   <section id="workspace" class="screen">
     <div class="topbar">
-      <h2>Workspace</h2>
-      <span class="topbar__hint">Analyse and Generate arrive in later phases.</span>
+      <h2>Analyse</h2>
+      <span class="topbar__hint setup__status" data-role="status">loading engine…</span>
     </div>
     <div class="workspace">
-      <div class="setup__board">
-        <div data-role="board"></div>
-      </div>
-      <div class="workspace__panel">
-        <div class="ws-placeholder">
-          Starting position ready. The Analyse and Generate panels are not built yet.
+      <div class="analyse__left">
+        <div class="board-row">
+          <div class="evalbar-mount" data-role="evalbar"></div>
+          <div data-role="board"></div>
         </div>
-        <div class="trirep">
-          <div class="trirep__row"><span class="trirep__label">back rank</span>
-            <span class="trirep__value" data-role="ws-rank"></span></div>
-          <div class="trirep__row"><span class="trirep__label">position id</span>
-            <span class="trirep__value" data-role="ws-id"></span></div>
-          <div class="trirep__row"><span class="trirep__label">fen</span>
-            <span class="trirep__value" data-role="ws-fen"></span></div>
-          <div class="trirep__row"><span class="trirep__label">fen (kqkq)</span>
-            <span class="trirep__value" data-role="ws-fen-std"></span></div>
+        <div class="nav">
+          <button class="btn nav__btn" data-role="nav-start" aria-label="first position">⏮</button>
+          <button class="btn nav__btn" data-role="nav-back" aria-label="previous move">◀</button>
+          <button class="btn nav__btn" data-role="nav-forward" aria-label="next move">▶</button>
+          <button class="btn nav__btn" data-role="nav-end" aria-label="last position">⏭</button>
+        </div>
+      </div>
+      <div class="analyse__panel">
+        <div class="panel-block">
+          <div class="panel-label">Top moves</div>
+          <div class="top-moves" data-role="top-moves"></div>
+        </div>
+        <div class="panel-block">
+          <div class="panel-label">Moves</div>
+          <div class="movelist" data-role="movelist"></div>
+        </div>
+        <div class="panel-block">
+          <div class="panel-label">Position (fen)</div>
+          <div class="cur-fen" data-role="cur-fen"></div>
         </div>
         <div class="ws-nav">
           <button class="btn" data-role="ws-reset">Reset</button>

@@ -316,6 +316,117 @@ button { font-family: inherit; font-size: inherit; color: inherit; cursor: point
 .topbar h2 { font-size: 20px; }
 .topbar__hint { color: var(--placeholder); font-size: 12px; }
 
+/* --- Analyse mode -------------------------------------------------------- */
+.analyse__left { display: flex; flex-direction: column; gap: 16px; }
+.board-row { display: flex; gap: 12px; align-items: stretch; }
+.analyse__panel { display: flex; flex-direction: column; gap: 18px; }
+
+/* Evaluation bar alongside the board (§9) */
+.evalbar {
+  position: relative;
+  flex: 0 0 22px;
+  background: var(--piece-dark);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.evalbar__fill {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 50%;
+  background: var(--piece-light);
+  transition: height 0.35s var(--ease);
+}
+.evalbar__label {
+  position: absolute;
+  top: 4px; left: 0; right: 0;
+  text-align: center;
+  font: 600 9px/1.2 var(--mono);
+  color: var(--piece-light);
+  mix-blend-mode: difference;
+}
+
+/* Board move/legality/selection highlights */
+.sq--selected { box-shadow: inset 0 0 0 9999px rgba(122, 38, 56, 0.34); } /* --accent tint */
+.sq--last { box-shadow: inset 0 0 0 9999px rgba(178, 138, 82, 0.26); }
+.sq--check { box-shadow: inset 0 0 0 9999px rgba(190, 70, 60, 0.5); }
+/* Legal destination: a small centred dot on empty squares … */
+.sq--target::after {
+  content: '';
+  position: absolute;
+  width: 30%; height: 30%;
+  border-radius: 50%;
+  background: var(--accent);
+  pointer-events: none;
+}
+/* … and a ring on squares holding a capturable piece. */
+.sq--target:has(.pc)::after {
+  width: 84%; height: 84%;
+  background: transparent;
+  border: 3px solid var(--accent);
+  box-sizing: border-box;
+}
+
+/* Navigation */
+.nav { display: flex; gap: 8px; justify-content: center; }
+.nav__btn { padding: 8px 16px; font-size: 14px; }
+
+/* Panel blocks */
+.panel-block {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.panel-label {
+  font: 500 10px/1 var(--sans);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--placeholder);
+  margin-bottom: 10px;
+}
+
+/* Top moves */
+.top-moves { display: flex; flex-direction: column; gap: 2px; transition: opacity 0.15s var(--ease); }
+.top-moves[data-loading="true"] { opacity: 0.5; }
+.move-row {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 8px;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 14px;
+}
+.move-row__rank { color: var(--placeholder); font-size: 12px; }
+.move-row__eval { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.move-row:first-child .move-row__eval { color: var(--heading); }
+.suggestion { cursor: pointer; }
+.suggestion:hover { background: var(--panel-hover); }
+.suggestion:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+
+/* Move list */
+.movelist {
+  display: flex; flex-wrap: wrap; gap: 2px 4px; align-items: baseline;
+  font-family: var(--mono); font-size: 13px;
+  max-height: 168px; overflow-y: auto;
+}
+.movelist:empty::after { content: 'no moves yet'; color: var(--placeholder); font-size: 12px; }
+.movelist__num { color: var(--placeholder); margin-left: 8px; }
+.movelist__num:first-child { margin-left: 0; }
+.movelist__move {
+  background: none; border: none; color: var(--text);
+  font: inherit; padding: 1px 5px; border-radius: 4px; cursor: pointer;
+}
+.movelist__move:hover { background: var(--panel-hover); }
+.movelist__move--current { background: var(--accent); color: var(--text); }
+
+.cur-fen { font-family: var(--mono); font-size: 11.5px; color: var(--text-secondary); word-break: break-all; }
+
+.setup__status[data-tone="live"] { color: var(--text-secondary); }
+.setup__status[data-tone="terminal"] { color: var(--heading); }
+
 /* --- Responsive: panel stacks below the board (§10 desktop-first) -------- */
 @media (max-width: 860px) {
   .setup, .workspace { grid-template-columns: 1fr; }

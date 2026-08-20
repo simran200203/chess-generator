@@ -1,63 +1,56 @@
 // @ts-check
 /**
- * Workspace — minimal shell for phase 2. Shows the chosen starting position on
- * a static board with the tri-representation readout and Back / Reset nav. The
- * Analyse and Generate panels arrive in later phases (§9); the right panel here
- * is a deliberate placeholder.
+ * Workspace — hosts Analyse mode (§9). Owns the single engine instance, boots
+ * it lazily on first entry, and drives the analyser. The Generate panel arrives
+ * in a later phase.
  */
 
 import { showScreen } from './router.js';
-import { createBoard, buildPosition } from './board.js';
-import {
-  validateBackRank, backRankToId, backRankToFEN, toStandardCastling,
-} from '../core/index.js';
+import { createEngine } from '../engine/engine.js';
+import { createAnalyse } from './analyse.js';
+import { backRankToFEN } from '../core/index.js';
 
 /** @param {string} sel */
 const $ = (sel, root = document) => root.querySelector(sel);
 
-let board = null;
+let engine = null;
+let analyse = null;
+let engineReady = null; // a Promise, created on first use
 /** @type {string} */
-let startRank = 'RNBQKBNR';
+let startFen = '';
 /** @type {'launch' | 'setup'} */
 let cameFrom = 'launch';
 
-/**
- * Initialise the workspace once.
- */
 export function initWorkspace() {
   const root = $('#workspace');
-  board = createBoard($('[data-role="board"]', root));
+  engine = createEngine();
+  analyse = createAnalyse(root, engine);
 
   $('[data-role="ws-back"]', root).addEventListener('click', () => {
+    if (analyse.game.history.length > 1
+      && !confirm('Leave analysis? Your moves in this position will be lost.')) return;
     showScreen(cameFrom);
   });
   $('[data-role="ws-reset"]', root).addEventListener('click', () => {
-    render(); // re-render the starting position (static in phase 2)
+    if (startFen) analyse.load(startFen);
   });
 }
 
 /**
- * Render the workspace for a starting back rank and reveal the screen.
- * @param {string} backRank - valid 8-char white back rank
- * @param {'launch' | 'setup'} from - where the user arrived from
+ * Enter the workspace for a starting back rank.
+ * @param {string} backRank
+ * @param {'launch' | 'setup'} from
  */
-export function showWorkspace(backRank, from) {
-  startRank = backRank;
+export async function showWorkspace(backRank, from) {
   cameFrom = from;
-  render();
+  startFen = backRankToFEN(backRank);
   showScreen('workspace');
-}
 
-function render() {
-  const root = $('#workspace');
-  const squares = [...startRank];
-  board.render(buildPosition(squares));
-
-  const valid = validateBackRank(startRank).valid;
-  const fen = valid ? backRankToFEN(startRank) : '';
-  $('[data-role="ws-rank"]', root).textContent = startRank;
-  $('[data-role="ws-id"]', root).textContent = valid ? String(backRankToId(startRank)) : '—';
-  $('[data-role="ws-fen"]', root).textContent = fen || '—';
-  // Standard KQkq form for the display boundary (§4).
-  $('[data-role="ws-fen-std"]', root).textContent = fen ? toStandardCastling(fen) : '—';
+  const status = $('[data-role="status"]', $('#workspace'));
+  if (!engineReady) {
+    status.textContent = 'loading engine…';
+    engineReady = engine.init();
+  }
+  await engineReady;
+  await analyse.load(startFen);
 }

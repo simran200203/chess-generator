@@ -55,6 +55,42 @@ export function buildPosition(rank1, opts = {}) {
 }
 
 /**
+ * Build the 64-cell board model from the board field of a full FEN.
+ * @param {string} fen
+ * @returns {Cell[]}
+ */
+export function fenToCells(fen) {
+  /** @type {Cell[]} */
+  const cells = new Array(64).fill(null);
+  const board = fen.trim().split(/\s+/)[0];
+  const ranks = board.split('/'); // ranks[0] = rank 8 = idx 0..7
+  for (let r = 0; r < 8; r++) {
+    let file = 0;
+    for (const ch of ranks[r]) {
+      if (ch >= '1' && ch <= '8') {
+        file += Number(ch);
+      } else {
+        const color = ch === ch.toUpperCase() ? 'w' : 'b';
+        cells[r * 8 + file] = { color, type: ch.toUpperCase() };
+        file++;
+      }
+    }
+  }
+  return cells;
+}
+
+/**
+ * Board index for an algebraic square, e.g. "e4" → 36.
+ * @param {string} square
+ * @returns {number}
+ */
+export function squareToIdx(square) {
+  const file = square.charCodeAt(0) - 97; // 'a' -> 0
+  const rank = Number(square[1]); // 1..8
+  return (8 - rank) * 8 + file;
+}
+
+/**
  * Path to a vendored, recoloured Cburnett piece SVG.
  * @param {'w' | 'b'} color
  * @param {string} type - one of K Q R B N P
@@ -109,6 +145,7 @@ function squareLabel(cell, idx) {
  *   el: HTMLElement,
  *   squares: HTMLElement[],
  *   render: (cells: Cell[]) => void,
+ *   highlight: (marks?: { lastMove?: string[], check?: string|null, targets?: string[] }) => void,
  * }}
  */
 export function createBoard(mount) {
@@ -161,5 +198,19 @@ export function createBoard(mount) {
     }
   }
 
-  return { el, squares, render };
+  const MARK_CLASSES = ['sq--last', 'sq--check', 'sq--target', 'sq--selected'];
+
+  /**
+   * Apply move/legality/selection highlights, clearing any previous marks first.
+   * @param {{ lastMove?: string[], check?: string|null, targets?: string[], selected?: string|null }} [marks]
+   */
+  function highlight(marks = {}) {
+    for (const sq of squares) sq.classList.remove(...MARK_CLASSES);
+    for (const s of marks.lastMove || []) squares[squareToIdx(s)].classList.add('sq--last');
+    if (marks.check) squares[squareToIdx(marks.check)].classList.add('sq--check');
+    if (marks.selected) squares[squareToIdx(marks.selected)].classList.add('sq--selected');
+    for (const s of marks.targets || []) squares[squareToIdx(s)].classList.add('sq--target');
+  }
+
+  return { el, squares, render, highlight };
 }

@@ -81,31 +81,40 @@ export function initSetup() {
     state.setSquare(file, null);
   }
 
-  // --- Pointer drag -------------------------------------------------------
+  // --- Pointer: click-to-place and drag share one path -------------------
+  // A press becomes a drag once it moves past the threshold; otherwise the
+  // pointer-up is a click (select tray piece / place / pick up).
+  const DRAG_THRESHOLD = 5;
   /** @type {HTMLElement|null} */
   let ghost = null;
   /** @type {{kind:'tray'|'board', piece:string, file?:number}|null} */
   let dragOrigin = null;
   let hoverFile = -1;
+  /** @type {{kind:'tray'|'board', piece:string, file?:number, x:number, y:number}|null} */
+  let press = null;
 
-  function startDrag(ev, origin) {
-    dragOrigin = origin;
+  function beginDrag(ev) {
+    setHeld(null); // starting a drag cancels any click-selection cleanly
+    dragOrigin = { kind: press.kind, piece: press.piece, file: press.file };
     ghost = document.createElement('div');
     ghost.className = 'drag-ghost';
     ghost.innerHTML =
-      `<img class="pc pc--w" src="${pieceSrc('w', origin.piece)}" alt="" draggable="false" />`;
+      `<img class="pc pc--w" src="${pieceSrc('w', press.piece)}" alt="" draggable="false" />`;
     document.body.appendChild(ghost);
     moveGhost(ev);
-    window.addEventListener('pointermove', onDragMove);
-    window.addEventListener('pointerup', onDragEnd);
-    window.addEventListener('pointercancel', onDragEnd);
   }
 
   function moveGhost(ev) {
     if (ghost) ghost.style.transform = `translate(${ev.clientX}px, ${ev.clientY}px)`;
   }
 
-  function onDragMove(ev) {
+  function onPointerMove(ev) {
+    if (!press) return;
+    if (!dragOrigin) {
+      if (Math.hypot(ev.clientX - press.x, ev.clientY - press.y) < DRAG_THRESHOLD) return;
+      if (press.kind === 'board' && !press.piece) return; // empty square: click only
+      beginDrag(ev);
+    }
     ev.preventDefault();
     moveGhost(ev);
     const el = document.elementFromPoint(ev.clientX, ev.clientY);
@@ -120,43 +129,69 @@ export function initSetup() {
     trayEl.classList.toggle('tray--over', overTray && dragOrigin?.kind === 'board');
   }
 
-  function onDragEnd(ev) {
+  function onPointerUp(ev) {
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', onPointerUp);
+    window.removeEventListener('pointercancel', onPointerUp);
+    const p = press;
+    press = null;
+    if (dragOrigin) { finishDrag(ev); return; }
+    if (p) handleClick(p);
+  }
+
+  function finishDrag(ev) {
     const el = document.elementFromPoint(ev.clientX, ev.clientY);
     const sq = el && el.closest('.sq--rank1');
     const overTray = !!(el && el.closest('[data-role="tray"]'));
-    if (sq && dragOrigin) {
-      place(dragOrigin, Number(sq.dataset.file));
-    } else if (overTray && dragOrigin?.kind === 'board') {
-      returnToTray(dragOrigin.file);
-    }
+    if (sq && dragOrigin) place(dragOrigin, Number(sq.dataset.file));
+    else if (overTray && dragOrigin?.kind === 'board') returnToTray(dragOrigin.file);
     if (hoverFile >= 0) rankSquares[hoverFile].classList.remove('sq--over');
     trayEl.classList.remove('tray--over');
     hoverFile = -1;
     ghost?.remove();
     ghost = null;
     dragOrigin = null;
-    window.removeEventListener('pointermove', onDragMove);
-    window.removeEventListener('pointerup', onDragEnd);
-    window.removeEventListener('pointercancel', onDragEnd);
   }
 
-  // Board rank-1: start a drag from a placed piece.
+  /** Click (no drag): mirrors the keyboard select / place / pick-up flow. */
+  function handleClick(p) {
+    if (p.kind === 'tray') {
+      setHeld(held?.kind === 'tray' && held.piece === p.piece
+        ? null : { kind: 'tray', piece: p.piece });
+      return;
+    }
+    const piece = state.getSquares()[p.file];
+    if (held) {
+      place(held, p.file); // place tray piece, or move/swap a board piece
+      setHeld(null);
+    } else if (piece) {
+      setHeld({ kind: 'board', piece, file: p.file });
+    } else {
+      setHeld(null);
+    }
+  }
+
+  /** @param {{kind:'tray'|'board', piece:string, file?:number}} info */
+  function armPress(info, ev) {
+    press = { ...info, x: ev.clientX, y: ev.clientY };
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+  }
+
+  // Board rank-1: a press over any rank-1 square (drag a piece, or click to place).
   board.el.addEventListener('pointerdown', (ev) => {
     const sq = ev.target.closest?.('.sq--rank1');
     if (!sq) return;
     const file = Number(sq.dataset.file);
-    const piece = state.getSquares()[file];
-    if (!piece) return;
-    ev.preventDefault();
-    startDrag(ev, { kind: 'board', piece, file });
+    armPress({ kind: 'board', piece: state.getSquares()[file], file }, ev);
   });
 
-  // Tray: start a drag from an available chip.
+  // Tray: a press on an available chip (drag out, or click to select).
   trayEl.addEventListener('pointerdown', (ev) => {
     const chip = ev.target.closest?.('.chip');
     if (!chip || chip.classList.contains('chip--empty')) return;
-    ev.preventDefault();
-    startDrag(ev, { kind: 'tray', piece: chip.dataset.piece });
+    armPress({ kind: 'tray', piece: chip.dataset.piece }, ev);
   });
 
   // --- Keyboard: tray select, rank-1 place/pick-up ------------------------

@@ -99,20 +99,39 @@ export function createEngine(url = new URL('./stockfish.js', import.meta.url)) {
   }
 
   /**
-   * Apply moves to a position and return the resulting FEN (parsed from `d`).
+   * Describe a position via `d`: its FEN and any checking pieces. The `Checkers`
+   * field lets callers highlight a king in check and distinguish checkmate from
+   * stalemate when there are no legal moves.
    * @param {string} fen
-   * @param {string[]} moves - engine UCI
-   * @returns {Promise<string>}
+   * @param {string[]} [moves] - engine UCI to apply first
+   * @returns {Promise<{ fen: string, checkers: string[] }>}
    */
-  async function applyMoves(fen, moves) {
+  async function describe(fen, moves) {
     const pos = moves && moves.length
       ? `position fen ${fen} moves ${moves.join(' ')}`
       : `position fen ${fen}`;
     // Terminate on the last line of the `d` block so trailing lines don't leak.
     const lines = await exec([pos, 'd'], (l) => /^Checkers:/i.test(l.trim()));
     const fenLine = lines.find((l) => /^Fen:/i.test(l.trim()));
-    if (!fenLine) throw new Error('applyMoves: engine did not report a Fen');
-    return fenLine.replace(/^Fen:\s*/i, '').trim();
+    if (!fenLine) throw new Error('describe: engine did not report a Fen');
+    const checkersLine = lines.find((l) => /^Checkers:/i.test(l.trim())) || '';
+    const checkers = checkersLine.replace(/^Checkers:\s*/i, '').trim().split(/\s+/).filter(Boolean);
+    return { fen: fenLine.replace(/^Fen:\s*/i, '').trim(), checkers };
+  }
+
+  /**
+   * Apply moves to a position and return the resulting FEN.
+   * @param {string} fen
+   * @param {string[]} moves - engine UCI
+   * @returns {Promise<string>}
+   */
+  async function applyMoves(fen, moves) {
+    return (await describe(fen, moves)).fen;
+  }
+
+  /** Ask the engine to stop the current search (it emits `bestmove` promptly). */
+  function stop() {
+    try { worker.postMessage('stop'); } catch { /* ignore */ }
   }
 
   function quit() {
@@ -120,7 +139,7 @@ export function createEngine(url = new URL('./stockfish.js', import.meta.url)) {
     worker.terminate();
   }
 
-  return { init, analyse, legalMoves, applyMoves, quit };
+  return { init, analyse, legalMoves, applyMoves, describe, stop, quit };
 }
 
 /**
