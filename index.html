@@ -98,10 +98,69 @@
         </div>
       </div>
       <div class="analyse__panel">
-        <div class="panel-block">
-          <div class="panel-label">Top moves</div>
-          <div class="top-moves" data-role="top-moves"></div>
+        <div class="tabs">
+          <button class="tab tab--active" data-tab="analyse">Analyse</button>
+          <button class="tab" data-tab="generate">Generate</button>
         </div>
+
+        <div data-tab-body="analyse">
+          <div class="panel-block">
+            <div class="panel-label">Top moves</div>
+            <div class="top-moves" data-role="top-moves"></div>
+          </div>
+        </div>
+
+        <div data-tab-body="generate" hidden>
+          <div class="panel-block gen">
+            <div class="panel-label">Generate from the current position</div>
+
+            <div class="field">
+              <label>Target outcome</label>
+              <div class="seg" data-role="gen-target">
+                <button class="seg__btn seg--active" data-target="white">White wins</button>
+                <button class="seg__btn" data-target="black">Black wins</button>
+                <button class="seg__btn" data-target="either">Either</button>
+                <button class="seg__btn" data-target="draw">Draw</button>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>White strength · <span data-role="gen-white-val">0.90</span></label>
+              <input type="range" min="30" max="100" step="1" data-role="gen-white" />
+            </div>
+            <div class="field">
+              <label>Black strength · <span data-role="gen-black-val">0.60</span></label>
+              <input type="range" min="30" max="100" step="1" data-role="gen-black" />
+            </div>
+
+            <div class="field">
+              <label for="gen-criterion">Convergence criterion</label>
+              <select id="gen-criterion" data-role="gen-criterion"></select>
+            </div>
+
+            <div class="field field--row">
+              <div class="field" style="flex:1">
+                <label for="gen-count">Candidates</label>
+                <input id="gen-count" type="number" min="1" max="500" value="30" data-role="gen-count" />
+              </div>
+              <div class="field" style="flex:1">
+                <label for="gen-seed">Seed</label>
+                <input id="gen-seed" data-role="gen-seed" placeholder="blank = random"
+                       autocomplete="off" spellcheck="false" />
+              </div>
+            </div>
+
+            <button class="btn btn--primary" data-role="gen-run">Generate</button>
+
+            <div class="gen-progress" data-role="gen-progress" hidden>
+              <div class="gen-progress__text" data-role="gen-progress-text"></div>
+              <button class="btn" data-role="gen-cancel">Cancel</button>
+            </div>
+
+            <div class="gen-result" data-role="gen-result" hidden></div>
+          </div>
+        </div>
+
         <div class="panel-block">
           <div class="panel-label">Moves</div>
           <div class="movelist" data-role="movelist"></div>

@@ -30,6 +30,10 @@
       legalCompletions, mulberry32,
     } from '../core/index.js';
     import { weightsForStrength, weightedPick } from '../generate/selection.js';
+    import { insufficientMaterial, repetitionKey } from '../generate/rules.js';
+    import {
+      winPct, computeHopelessPly, winnerOf, matchesTarget, CRITERIA, hopelessLabel,
+    } from '../generate/score.js';
 
     // --- 30-line harness ---------------------------------------------------
     let passed = 0, failed = 0;
@@ -141,6 +145,33 @@
     eq(weightedPick([0.7, 0.2, 0.1], 0.0), 0, 'pick: r at band start → index 0');
     eq(weightedPick([0.7, 0.2, 0.1], 0.8), 1, 'pick: r in second band → index 1');
     eq(weightedPick([0.7, 0.2, 0.1], 0.95), 2, 'pick: r in third band → index 2');
+
+    // --- Draw rules --------------------------------------------------------
+    ok(insufficientMaterial('8/8/4k3/8/8/4K3/8/8 w - - 0 1'), 'K v K is insufficient material');
+    ok(insufficientMaterial('8/8/4k3/8/8/4K3/5B2/8 w - - 0 1'), 'K+B v K is insufficient material');
+    ok(!insufficientMaterial('8/4P3/4k3/8/8/4K3/8/8 w - - 0 1'), 'K+P v K is sufficient material');
+    eq(repetitionKey('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 5 9'),
+      'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -',
+      'repetition key drops the move clocks');
+
+    // --- Convergence scoring -----------------------------------------------
+    ok(Math.abs(winPct(800) - 95) < 0.5, '±800cp maps to ~95% win probability');
+    eq(computeHopelessPly([0, 0, 0, 0, 0, 850, 900, 920, 950, 1000, 1100, 1200], 800, 6), 5,
+      'hopeless ply is the first of a sustained lost run');
+    eq(computeHopelessPly([0, 900, 0, 0, 0, 0], 800, 6), null, 'a lone spike is not hopeless');
+    eq(winnerOf({ type: 'decisive', winner: 'w' }), 'w', 'winnerOf reads a decisive winner');
+    eq(winnerOf({ type: 'threefold' }), null, 'a draw has no winner');
+    ok(matchesTarget({ type: 'threefold' }, 'draw'), 'threefold satisfies the Draw target');
+    ok(!matchesTarget({ type: 'decisive', winner: 'b' }, 'white'), 'a Black win fails the White target');
+    const G = (evals, plies, moves, result) => ({ evals, plies, moves, result });
+    ok(CRITERIA['largest-swing'].score(G([0, 0, 0, 600, 0], [], [0, 0, 0, 0]), 'w')
+      > CRITERIA['largest-swing'].score(G([0, 100, 200, 300, 400], [], [0, 0, 0, 0]), 'w'),
+      'largest-swing prefers the bigger single turning point');
+    ok(CRITERIA['cleanest-winner'].score(G([], [{ side: 'w', dropWinPct: 2 }], ['a'], {}), 'w')
+      > CRITERIA['cleanest-winner'].score(G([], [{ side: 'w', dropWinPct: 25 }], ['a'], {}), 'w'),
+      'cleanest-winner prefers fewer conceded win%');
+    eq(hopelessLabel(27), 'Position becomes lost at move 14 (White), ply 27.',
+      'hopeless label names the move and the ply');
 
     // --- Summary -----------------------------------------------------------
     const summary = document.getElementById('summary');

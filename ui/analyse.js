@@ -39,6 +39,7 @@ export function createAnalyse(root, engine) {
   let analysisToken = 0;
   /** @type {string|null} */ let selected = null;
   let baseMarks = /** @type {{lastMove:string[], check:string|null}} */ ({ lastMove: [], check: null });
+  /** @type {number|null} */ let markedPly = null; // ply the position became lost (generated games)
 
   // --- Rendering ----------------------------------------------------------
   game.subscribe(() => { render().catch((e) => console.error(e)); });
@@ -125,6 +126,8 @@ export function createAnalyse(root, engine) {
       s.className = 'movelist__move';
       s.textContent = moveLabel(h[i - 1].fen, /** @type {string} */ (h[i].move));
       s.classList.toggle('movelist__move--current', i === game.cursor);
+      s.classList.toggle('movelist__move--lost', i === markedPly);
+      if (i === markedPly) s.title = 'position becomes lost here';
       s.addEventListener('click', () => game.goto(i));
       listEl.appendChild(s);
     }
@@ -261,14 +264,38 @@ export function createAnalyse(root, engine) {
   });
 
   /**
-   * Load a starting position into the analyser.
+   * Load a starting position into the analyser (fresh, no marked ply).
    * @param {string} startFen
    */
   async function load(startFen) {
+    markedPly = null;
     await game.load(startFen);
   }
 
-  return { load, game };
+  /**
+   * Render a position on the board without touching game state — used for the
+   * best-so-far preview during generation (no engine calls).
+   * @param {string} fen
+   */
+  function previewPosition(fen) {
+    board.render(fenToCells(fen));
+    board.highlight({});
+  }
+
+  /**
+   * Load a generated game so it can be stepped through, marking the hopeless
+   * move and jumping the board to that moment.
+   * @param {string} startFen
+   * @param {string[]} moves
+   * @param {{ hopelessPly?: number|null }} [meta]
+   */
+  async function loadGame(startFen, moves, meta = {}) {
+    markedPly = meta.hopelessPly ?? null;
+    await game.loadGame(startFen, moves);
+    if (markedPly) game.goto(markedPly);
+  }
+
+  return { load, previewPosition, loadGame, game };
 }
 
 // --- Helpers --------------------------------------------------------------

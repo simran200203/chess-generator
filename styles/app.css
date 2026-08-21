@@ -424,6 +424,60 @@ button { font-family: inherit; font-size: inherit; color: inherit; cursor: point
 
 .cur-fen { font-family: var(--mono); font-size: 11.5px; color: var(--text-secondary); word-break: break-all; }
 
+/* --- Tabs ---------------------------------------------------------------- */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
+.tab {
+  background: none; border: none; color: var(--text-secondary);
+  font: 600 12px/1 var(--sans); letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 10px 14px; border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.tab--active { color: var(--heading); border-bottom-color: var(--accent); }
+
+/* --- Generate panel ------------------------------------------------------ */
+.gen { display: flex; flex-direction: column; gap: 16px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.seg__btn {
+  background: var(--panel-hover); border: 1px solid var(--border); color: var(--text-secondary);
+  border-radius: 6px; padding: 8px 6px; font-size: 12px;
+  transition: border-color 0.15s var(--ease), color 0.15s var(--ease);
+}
+.seg__btn:hover { border-color: var(--accent); }
+.seg--active { border-color: var(--accent); color: var(--text); background: var(--accent); }
+
+.gen input[type="range"] { width: 100%; accent-color: var(--accent); }
+.gen select, .gen input[type="number"] {
+  background: var(--panel-hover); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-family: var(--mono); font-size: 14px; padding: 9px 11px;
+}
+.gen select:focus-visible, .gen input:focus-visible { outline: none; border-color: var(--accent); }
+
+.gen-progress {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 14px; background: var(--panel-hover); border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.gen-progress__text { font-family: var(--mono); font-size: 12.5px; color: var(--text); }
+
+.gen-result { display: flex; flex-direction: column; gap: 8px; }
+.gen-hopeless {
+  font-family: var(--serif); font-size: 17px; color: var(--heading);
+  padding: 12px 14px; border: 1px solid var(--accent); border-radius: var(--radius);
+  background: rgba(122, 38, 56, 0.14);
+}
+.gen-result-row {
+  display: flex; justify-content: space-between; gap: 12px;
+  font-family: var(--mono); font-size: 13px;
+}
+.gen-result-row span:first-child { color: var(--placeholder); text-transform: uppercase; letter-spacing: 0.1em; font-size: 10px; align-self: center; }
+.gen-msg { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+
+/* The move where the position becomes lost, marked in the move list. */
+.movelist__move--lost {
+  color: var(--heading); font-weight: 700;
+  box-shadow: inset 0 -2px 0 var(--heading);
+}
+.movelist__move--lost.movelist__move--current { color: var(--text); }
+
 .setup__status[data-tone="live"] { color: var(--text-secondary); }
 .setup__status[data-tone="terminal"] { color: var(--heading); }
 

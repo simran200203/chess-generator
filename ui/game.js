@@ -47,6 +47,29 @@ export function createGame(engine) {
     onChange();
   }
 
+  /**
+   * Load a complete game (start FEN + move list) into the history, e.g. a
+   * generated game, so it can be stepped through. Derives each position from
+   * the engine.
+   * @param {string} startFen
+   * @param {string[]} movesList - engine UCI
+   */
+  async function loadGame(startFen, movesList) {
+    const first = await engine.describe(startFen);
+    /** @type {Ply[]} */
+    const built = [{ move: null, fen: first.fen, source: null, checkers: first.checkers }];
+    let cur = first.fen;
+    for (const mv of movesList) {
+      const d = await engine.describe(cur, [mv]);
+      built.push({ move: mv, fen: d.fen, source: 'generated', checkers: d.checkers });
+      cur = d.fen;
+    }
+    history = built;
+    cursor = 0;
+    legalCache = null;
+    onChange();
+  }
+
   function current() {
     return history[cursor];
   }
@@ -92,7 +115,7 @@ export function createGame(engine) {
   function forward() { goto(cursor + 1); }
 
   return {
-    load, playMove, goto, back, forward, legalMoves, current, subscribe,
+    load, loadGame, playMove, goto, back, forward, legalMoves, current, subscribe,
     get cursor() { return cursor; },
     get history() { return history; },
     get atStart() { return cursor === 0; },

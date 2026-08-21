@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Convergence loop — tests</title>
+  <style>
+    body { font: 14px/1.5 ui-monospace, "IBM Plex Mono", monospace;
+           background: #1c1514; color: #f1e6d0; margin: 0; padding: 24px; }
+    h1 { font-size: 18px; font-weight: 600; }
+    #summary { font-size: 16px; padding: 8px 0 16px; }
+    .pass { color: #9fb069; } .fail { color: #cf7f57; } .run { color: #b28a52; }
+    ul { list-style: none; padding: 0; margin: 0; } li { padding: 2px 0; } li.fail { font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>Convergence loop — tests</h1>
+  <div id="summary" class="run">loading engine…</div>
+  <ul id="results"></ul>
+
+  <script type="module">
+    import { createEngine } from '../engine/engine.js';
+    import { converge } from '../generate/converge.js';
+    import { winnerOf } from '../generate/score.js';
+    import { backRankToFEN } from '../core/index.js';
+
+    let passed = 0, failed = 0;
+    const results = document.getElementById('results');
+    const summary = document.getElementById('summary');
+    function record(ok, msg) {
+      ok ? passed++ : failed++;
+      const li = document.createElement('li');
+      li.className = ok ? 'pass' : 'fail';
+      li.textContent = `${ok ? 'PASS' : 'FAIL'}  ${msg}`;
+      results.appendChild(li);
+      (ok ? console.log : console.error)(`${ok ? 'PASS' : 'FAIL'}  ${msg}`);
+    }
+    const ok = (c, m) => record(!!c, m);
+    const eq = (a, b, m) => record(a === b, `${m}${a === b ? '' : `  (got ${JSON.stringify(a)} vs ${JSON.stringify(b)})`}`);
+
+    async function main() {
+      const engine = createEngine();
+      await engine.init();
+      const start = backRankToFEN('RNBQKBNR');
+
+      const base = {
+        startFen: start, whiteStrength: 0.9, blackStrength: 0.55,
+        criterion: 'largest-swing', candidateCount: 6, seed: 777,
+        tier1Depth: 8, tier2Depth: 10,
+      };
+      const noop = { onProgress() {}, shouldCancel: () => false };
+
+      // --- Determinism: same seed + params → identical winner -------------
+      summary.textContent = 'converge run 1 (target: White wins)…';
+      const r1 = await converge(engine, { ...base, target: 'white' }, noop);
+      summary.textContent = 'converge run 2 (same seed)…';
+      const r2 = await converge(engine, { ...base, target: 'white' }, noop);
+      ok(r1.ok, `run 1 produced a winner (${r1.game?.result.type})`);
+      eq(r1.game.moves.join(' '), r2.game.moves.join(' '),
+        'same seed + params → identical winning game');
+
+      // --- Filtering: the winner matches the target -----------------------
+      eq(winnerOf(r1.game.result), 'w', 'the selected game is a White win (matches target)');
+
+      // --- Hopeless ply surfaced as a first-class output ------------------
+      ok(Number.isInteger(r1.hopelessPly) && r1.hopelessPly > 0
+        && r1.hopelessPly <= r1.game.moves.length,
+        `hopeless ply reported: ${r1.hopelessPly} of ${r1.game.moves.length} plies`);
+      ok(r1.deepEvals && r1.deepEvals.length === r1.game.fens.length,
+        'tier-2 deep re-analysis produced one eval per position');
+
+      // --- Progress + best-so-far are delivered ---------------------------
+      let sawProgress = false, sawBest = false;
+      await converge(engine, { ...base, target: 'white', candidateCount: 3 }, {
+        onProgress: (p) => { sawProgress = true; if (p.best) sawBest = true; },
+        shouldCancel: () => false,
+      });
+      ok(sawProgress && sawBest, 'onProgress reports candidates and a best-so-far');
+
+      // --- Nothing-qualifies path returns a relax message -----------------
+      summary.textContent = 'converge with an unlikely target…';
+      const r3 = await converge(engine, { ...base, target: 'draw', whiteStrength: 0.95, blackStrength: 0.4, candidateCount: 4 }, noop);
+      if (r3.ok) {
+        ok(r3.game.moves.length > 0, 'a draw was found (acceptable); game returned');
+      } else {
+        ok(typeof r3.reason === 'string' && r3.reason.length > 0,
+          `no qualifier → relax message: "${r3.reason.slice(0, 70)}…"`);
+      }
+
+      engine.quit();
+      summary.textContent = `${passed} passed, ${failed} failed`;
+      summary.className = failed === 0 ? 'pass' : 'fail';
+      window.__summary = summary.textContent;
+      window.__done = true;
+    }
+
+    main().catch((e) => {
+      record(false, `harness threw: ${e && e.message}`);
+      summary.textContent = `${passed} passed, ${failed} failed (harness error)`;
+      summary.className = 'fail';
+      window.__summary = summary.textContent;
+      window.__done = true;
+    });
+  </script>
+</body>
+</html>
