@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Self-play generation — tests</title>
+  <style>
+    body { font: 14px/1.5 ui-monospace, "IBM Plex Mono", monospace;
+           background: #1c1514; color: #f1e6d0; margin: 0; padding: 24px; }
+    h1 { font-size: 18px; font-weight: 600; }
+    #summary { font-size: 16px; padding: 8px 0 16px; }
+    .pass { color: #9fb069; } .fail { color: #cf7f57; } .run { color: #b28a52; }
+    ul { list-style: none; padding: 0; margin: 0; }
+    li { padding: 2px 0; } li.fail { font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>Self-play generation — tests</h1>
+  <div id="summary" class="run">loading engine…</div>
+  <ul id="results"></ul>
+
+  <script type="module">
+    import { createEngine } from '../engine/engine.js';
+    import { generateGame } from '../generate/selfplay.js';
+    import { backRankToFEN, idToBackRank } from '../core/index.js';
+
+    let passed = 0, failed = 0;
+    const results = document.getElementById('results');
+    const summary = document.getElementById('summary');
+    function record(ok, msg) {
+      ok ? passed++ : failed++;
+      const li = document.createElement('li');
+      li.className = ok ? 'pass' : 'fail';
+      li.textContent = `${ok ? 'PASS' : 'FAIL'}  ${msg}`;
+      results.appendChild(li);
+      (ok ? console.log : console.error)(`${ok ? 'PASS' : 'FAIL'}  ${msg}`);
+    }
+    const ok = (c, m) => record(!!c, m);
+    const eq = (a, b, m) => record(a === b, `${m}${a === b ? '' : `  (got ${JSON.stringify(a)} vs ${JSON.stringify(b)})`}`);
+
+    async function main() {
+      const engine = createEngine();
+      await engine.init();
+
+      const DEPTH = 8, PLY = 50, STR = 0.75;
+      const start = backRankToFEN('RNBQKBNR');
+
+      // --- Premise: fixed-depth analyse is deterministic (cold hash) -------
+      await engine.newGame();
+      const a1 = await engine.analyse(start, { depth: 12, multipv: 3 });
+      await engine.newGame();
+      const a2 = await engine.analyse(start, { depth: 12, multipv: 3 });
+      eq(a1[0].pv[0], a2[0].pv[0], 'analyse is deterministic: same best move');
+      eq(a1[0].score, a2[0].score, 'analyse is deterministic: same score');
+
+      const opts = (fen, seed) => ({
+        startFen: fen, seed, whiteStrength: STR, blackStrength: STR,
+        depth: DEPTH, plyCeiling: PLY,
+      });
+
+      // --- Standard start: same seed reproduces the identical game ---------
+      summary.textContent = 'generating standard game (seed A)…';
+      const g1 = await generateGame(engine, opts(start, 20260601));
+      summary.textContent = 'generating standard game (seed A, again)…';
+      const g2 = await generateGame(engine, opts(start, 20260601));
+      ok(g1.moves.length > 0, `generated a game of ${g1.moves.length} plies (${g1.result.type})`);
+      eq(g1.moves.join(' '), g2.moves.join(' '), 'same seed → identical move list (standard)');
+
+      // --- A different seed diverges --------------------------------------
+      summary.textContent = 'generating standard game (seed B)…';
+      const g3 = await generateGame(engine, opts(start, 987654321));
+      ok(g3.moves.join(' ') !== g1.moves.join(' '), 'a different seed produces a different game');
+
+      // --- Chess960 position reproduces too -------------------------------
+      const fen960 = backRankToFEN(idToBackRank(225)); // BNRBQKNR
+      summary.textContent = 'generating Chess960 game (seed C)…';
+      const c1 = await generateGame(engine, opts(fen960, 424242));
+      summary.textContent = 'generating Chess960 game (seed C, again)…';
+      const c2 = await generateGame(engine, opts(fen960, 424242));
+      ok(c1.moves.length > 0, `generated a Chess960 game of ${c1.moves.length} plies (${c1.result.type})`);
+      eq(c1.moves.join(' '), c2.moves.join(' '), 'same seed → identical move list (Chess960)');
+
+      engine.quit();
+      summary.textContent = `${passed} passed, ${failed} failed`;
+      summary.className = failed === 0 ? 'pass' : 'fail';
+      window.__summary = summary.textContent;
+      window.__done = true;
+    }
+
+    main().catch((e) => {
+      record(false, `harness threw: ${e && e.message}`);
+      summary.textContent = `${passed} passed, ${failed} failed (harness error)`;
+      summary.className = 'fail';
+      window.__summary = summary.textContent;
+      window.__done = true;
+    });
+  </script>
+</body>
+</html>

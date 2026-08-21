@@ -29,6 +29,7 @@
       backRankToFEN, castlingField, toStandardCastling,
       legalCompletions, mulberry32,
     } from '../core/index.js';
+    import { weightsForStrength, weightedPick } from '../generate/selection.js';
 
     // --- 30-line harness ---------------------------------------------------
     let passed = 0, failed = 0;
@@ -126,6 +127,20 @@
     const g1 = mulberry32(12345), g2 = mulberry32(12345);
     ok(g1() === g2() && g1() === g2(), 'same seed yields the same stream');
     ok(mulberry32(1)() !== mulberry32(2)(), 'different seeds diverge');
+
+    // --- strength-weighted selection ---------------------------------------
+    const sum = (a) => a.reduce((x, y) => x + y, 0);
+    eq(weightsForStrength(0.85, 1)[0], 1, 'one candidate always gives weight 1');
+    ok(Math.abs(sum(weightsForStrength(0.7, 3)) - 1) < 1e-9, 'weights sum to 1');
+    eq(weightsForStrength(1, 3)[0], 1, 'strength 1 puts all weight on the best move');
+    ok(weightsForStrength(0.9, 3)[0] > weightsForStrength(0.6, 3)[0],
+      'higher strength → higher best-move probability');
+    const w3 = weightsForStrength(0.7, 3);
+    ok(w3[1] > w3[2], 'line 2 is weighted above line 3');
+    // weightedPick maps r deterministically across the cumulative bands.
+    eq(weightedPick([0.7, 0.2, 0.1], 0.0), 0, 'pick: r at band start → index 0');
+    eq(weightedPick([0.7, 0.2, 0.1], 0.8), 1, 'pick: r in second band → index 1');
+    eq(weightedPick([0.7, 0.2, 0.1], 0.95), 2, 'pick: r in third band → index 2');
 
     // --- Summary -----------------------------------------------------------
     const summary = document.getElementById('summary');

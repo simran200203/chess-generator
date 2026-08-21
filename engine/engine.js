@@ -63,6 +63,15 @@ export function createEngine(url = new URL('./stockfish.js', import.meta.url)) {
   }
 
   /**
+   * Reset the engine to a fresh game, clearing the transposition table. Called
+   * before generating a game so two runs start from an identical hash state and
+   * evolve deterministically (§6 reproducibility).
+   */
+  async function newGame() {
+    await exec(['ucinewgame', 'isready'], (l) => l.trim() === 'readyok');
+  }
+
+  /**
    * @param {string} fen
    * @param {{depth?: number, multipv?: number}} [opts]
    * @returns {Promise<AnalysisLine[]>}
@@ -139,7 +148,7 @@ export function createEngine(url = new URL('./stockfish.js', import.meta.url)) {
     worker.terminate();
   }
 
-  return { init, analyse, legalMoves, applyMoves, describe, stop, quit };
+  return { init, newGame, analyse, legalMoves, applyMoves, describe, stop, quit };
 }
 
 /**
