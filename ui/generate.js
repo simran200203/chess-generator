@@ -25,8 +25,9 @@ const STRENGTH_DEFAULTS = {
  * @param {HTMLElement} root - the workspace screen element
  * @param {ReturnType<import('../engine/engine.js').createEngine>} engine
  * @param {{ previewPosition:(fen:string)=>void, loadGame:(f:string,m:string[],meta?:object)=>Promise<void>, game:any }} analyse
+ * @param {{ setGame:(g:object)=>Promise<void> }} results
  */
-export function createGenerate(root, engine, analyse) {
+export function createGenerate(root, engine, analyse, results) {
   const targetGroup = $('[data-role="gen-target"]', root);
   const whiteSlider = $('[data-role="gen-white"]', root);
   const blackSlider = $('[data-role="gen-black"]', root);
@@ -119,7 +120,7 @@ export function createGenerate(root, engine, analyse) {
       cancelBtn.disabled = false;
       progressEl.hidden = true;
     }
-    await showResult(res, startFen);
+    await showResult(res, startFen, opts);
   }
 
   function showProgress(p) {
@@ -133,7 +134,7 @@ export function createGenerate(root, engine, analyse) {
       `game ${p.done} / ${p.total} · ${p.qualifying} qualifying · best so far: ${bestStr}`;
   }
 
-  async function showResult(res, startFen) {
+  async function showResult(res, startFen, opts) {
     resultEl.hidden = false;
     if (!res.ok) {
       resultEl.innerHTML = `<div class="gen-msg">${escapeHtml(res.reason)}</div>`;
@@ -155,8 +156,15 @@ export function createGenerate(root, engine, analyse) {
       <div class="gen-result-row"><span>seed</span><span>${res.seed}</span></div>
       ${res.cancelled ? '<div class="gen-msg">cancelled — showing best of the games completed so far</div>' : ''}
     `;
-    // Load the winner as a steppable game, marking the hopeless move.
+    // Load the winner as a steppable game, marking the hopeless move, then
+    // annotate it (classification glyphs, SAN, eval graph, export).
     await analyse.loadGame(startFen, res.game.moves, { hopelessPly: res.hopelessPly });
+    await results.setGame({
+      startFen, moves: res.game.moves, fens: res.game.fens, deep: res.deep,
+      result: res.game.result, winner: res.winner, hopelessPly: res.hopelessPly,
+      criterion: res.criterion, seed: res.seed,
+      whiteStrength: opts.whiteStrength, blackStrength: opts.blackStrength,
+    });
   }
 }
 

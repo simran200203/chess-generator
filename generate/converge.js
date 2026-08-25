@@ -12,8 +12,9 @@
 
 import { mulberry32 } from '../core/random.js';
 import { generateGame } from './selfplay.js';
+import { deepAnalyse } from './deep.js';
 import {
-  CRITERIA, winnerOf, matchesTarget, relaxSuggestion, computeHopelessPly, toWhiteCp,
+  CRITERIA, winnerOf, matchesTarget, relaxSuggestion, computeHopelessPly,
 } from './score.js';
 
 /**
@@ -92,16 +93,11 @@ export async function converge(engine, opts, hooks = {}) {
     };
   }
 
-  // Tier-2: re-analyse the winner deeply, once, and recompute the hopeless ply
+  // Tier-2: re-analyse the winner deeply (once), and recompute the hopeless ply
   // on the accurate curve for display.
   onProgress({ done: candidateCount, total: candidateCount, qualifying: qualifyingCount(tallies, target), best, criterion, phase: 'deep' });
-  const deepEvals = [];
-  for (let i = 0; i < best.game.fens.length; i++) {
-    if (shouldCancel()) { cancelled = true; break; }
-    const fen = best.game.fens[i];
-    const lines = await engine.analyse(fen, { depth: tier2Depth, multipv: 1 });
-    deepEvals.push(lines.length ? toWhiteCp(lines[0], fen.split(/\s+/)[1]) : (deepEvals[i - 1] ?? 0));
-  }
+  const deep = await deepAnalyse(engine, best.game.fens, { depth: tier2Depth, multipv: 2, shouldCancel });
+  const deepEvals = deep.map((d) => d.cpWhite);
   const deepHopelessPly = computeHopelessPly(deepEvals, decisiveCp, decisiveTail)
     ?? best.game.hopelessPly;
 
@@ -112,6 +108,7 @@ export async function converge(engine, opts, hooks = {}) {
     score: best.score,
     criterion,
     hopelessPly: deepHopelessPly,
+    deep,
     deepEvals,
     tallies,
     seed,

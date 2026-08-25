@@ -108,6 +108,9 @@
             <div class="panel-label">Top moves</div>
             <div class="top-moves" data-role="top-moves"></div>
           </div>
+          <div class="panel-block">
+            <button class="btn" data-role="annotate">Annotate this game</button>
+          </div>
         </div>
 
         <div data-tab-body="generate" hidden>
@@ -169,6 +172,18 @@
           <div class="panel-label">Position (fen)</div>
           <div class="cur-fen" data-role="cur-fen"></div>
         </div>
+
+        <div class="panel-block results" data-role="results" hidden>
+          <div class="panel-label">Results</div>
+          <div class="results-status" data-role="results-status"></div>
+          <div class="eval-graph" data-role="eval-graph"></div>
+          <div class="results-actions">
+            <button class="btn" data-role="notation-toggle">Show UCI</button>
+            <button class="btn" data-role="export-pgn">Export PGN</button>
+            <button class="btn" data-role="export-json">Export JSON</button>
+          </div>
+        </div>
+
         <div class="ws-nav">
           <button class="btn" data-role="ws-reset">Reset</button>
           <button class="btn btn--ghost" data-role="ws-back">Back</button>

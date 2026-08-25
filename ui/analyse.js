@@ -40,6 +40,9 @@ export function createAnalyse(root, engine) {
   /** @type {string|null} */ let selected = null;
   let baseMarks = /** @type {{lastMove:string[], check:string|null}} */ ({ lastMove: [], check: null });
   /** @type {number|null} */ let markedPly = null; // ply the position became lost (generated games)
+  /** @type {(object|null)[]|null} */ let annotations = null; // classification per ply
+  /** @type {string[]|null} */ let sanList = null; // SAN per ply
+  let notation = 'san'; // 'san' | 'uci'
 
   // --- Rendering ----------------------------------------------------------
   game.subscribe(() => { render().catch((e) => console.error(e)); });
@@ -122,9 +125,23 @@ export function createAnalyse(root, engine) {
         num.textContent = `${Math.ceil(i / 2)}.`;
         listEl.appendChild(num);
       }
+      const uci = /** @type {string} */ (h[i].move);
+      const uciLabel = moveLabel(h[i - 1].fen, uci);
+      const san = sanList && sanList[i - 1];
+      const label = notation === 'san' && san ? san : uciLabel;
+      const ann = annotations && annotations[i - 1];
+
       const s = document.createElement('button');
       s.className = 'movelist__move';
-      s.textContent = moveLabel(h[i - 1].fen, /** @type {string} */ (h[i].move));
+      s.textContent = label;
+      s.title = notation === 'san' && san ? uciLabel : (san || uciLabel);
+      if (ann) {
+        const g = document.createElement('span');
+        g.className = `glyph glyph--${ann.kind}`;
+        g.textContent = ann.glyph;
+        g.title = ann.label;
+        s.appendChild(g);
+      }
       s.classList.toggle('movelist__move--current', i === game.cursor);
       s.classList.toggle('movelist__move--lost', i === markedPly);
       if (i === markedPly) s.title = 'position becomes lost here';
@@ -269,7 +286,33 @@ export function createAnalyse(root, engine) {
    */
   async function load(startFen) {
     markedPly = null;
+    annotations = null;
+    sanList = null;
     await game.load(startFen);
+  }
+
+  /**
+   * Attach classification glyphs + SAN to the current game's move list.
+   * @param {{ annotations: (object|null)[], san: string[] } | null} data
+   */
+  function setAnnotations(data) {
+    annotations = data ? data.annotations : null;
+    sanList = data ? data.san : null;
+    renderMoveList();
+  }
+
+  /** @param {'san'|'uci'} mode */
+  function setNotation(mode) { notation = mode; renderMoveList(); }
+  function getNotation() { return notation; }
+
+  /** The current game as start FEN + move list + per-ply FENs. */
+  function currentGameData() {
+    const h = game.history;
+    return {
+      startFen: h[0].fen,
+      moves: h.slice(1).map((p) => p.move),
+      fens: h.map((p) => p.fen),
+    };
   }
 
   /**
@@ -295,7 +338,10 @@ export function createAnalyse(root, engine) {
     if (markedPly) game.goto(markedPly);
   }
 
-  return { load, previewPosition, loadGame, game };
+  return {
+    load, previewPosition, loadGame, game,
+    setAnnotations, setNotation, getNotation, currentGameData,
+  };
 }
 
 // --- Helpers --------------------------------------------------------------

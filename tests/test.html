@@ -34,6 +34,9 @@
     import {
       winPct, computeHopelessPly, winnerOf, matchesTarget, CRITERIA, hopelessLabel,
     } from '../generate/score.js';
+    import { classifyGame, material } from '../generate/classify.js';
+    import { moveToSan } from '../generate/san.js';
+    import { toPGN, toJSON } from '../generate/pgn.js';
 
     // --- 30-line harness ---------------------------------------------------
     let passed = 0, failed = 0;
@@ -172,6 +175,60 @@
       'cleanest-winner prefers fewer conceded win%');
     eq(hopelessLabel(27), 'Position becomes lost at move 14 (White), ply 27.',
       'hopeless label names the move and the ply');
+
+    // --- Classification (§8) -----------------------------------------------
+    eq(material('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', 'w'), 39,
+      'starting material is 39 points');
+    {
+      const start = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+      const afterBlack = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1';
+      const blunder = classifyGame(
+        { moves: ['a2a3'], fens: [start, afterBlack] },
+        [{ cpWhite: 0, bestMove: 'e2e4', secondCpWhite: 0 }, { cpWhite: -800, bestMove: null, secondCpWhite: null }],
+      );
+      eq(blunder[0].kind, 'blunder', 'a 45-point win% drop is a blunder');
+      eq(blunder[0].glyph, '??', 'blunder glyph is ??');
+      const clean = classifyGame(
+        { moves: ['a2a3'], fens: [start, afterBlack] },
+        [{ cpWhite: 0, bestMove: 'e2e4', secondCpWhite: 0 }, { cpWhite: 10, bestMove: null, secondCpWhite: null }],
+      );
+      eq(clean[0], null, 'a tiny change is unclassified');
+    }
+
+    // --- SAN generation ----------------------------------------------------
+    const startFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    eq(moveToSan(startFen, 'e2e4', [], { checkers: [], noLegal: false }), 'e4', 'pawn push SAN');
+    eq(moveToSan(startFen, 'g1f3', ['g1f3', 'b1c3'], { checkers: [], noLegal: false }), 'Nf3', 'knight SAN');
+    eq(moveToSan('r3k2r/8/8/8/8/8/8/R3K2R w AHah - 0 1', 'e1h1', ['e1h1'], { checkers: [], noLegal: false }),
+      'O-O', 'kingside castling SAN is O-O');
+    eq(moveToSan('4k3/8/8/8/8/8/8/R6R w - - 0 1', 'a1d1', ['a1d1', 'h1d1'], { checkers: [], noLegal: false }),
+      'Rad1', 'rook move disambiguates by file');
+    eq(moveToSan(startFen, 'g1f3', ['g1f3'], { checkers: ['e4'], noLegal: false }), 'Nf3+', 'check suffix +');
+    eq(moveToSan(startFen, 'g1f3', ['g1f3'], { checkers: ['e4'], noLegal: true }), 'Nf3#', 'mate suffix #');
+
+    // --- PGN / JSON export -------------------------------------------------
+    {
+      const afterE4 = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1';
+      const g = {
+        startFen, moves: ['e2e4'], san: ['e4'], fens: [startFen, afterE4],
+        deep: [
+          { cpWhite: 20, evalWhite: { type: 'cp', value: 20 } },
+          { cpWhite: 30, evalWhite: { type: 'cp', value: 30 } },
+        ],
+        annotations: [null], result: { type: 'decisive', winner: 'w' }, hopelessPly: 1,
+        whiteStrength: 0.9, blackStrength: 0.6, criterion: 'largest-swing', seed: 42, variant: 'Standard',
+      };
+      const pgn = toPGN(g);
+      ok(pgn.includes('[Result "1-0"]'), 'PGN has the result tag');
+      ok(pgn.includes(`[FEN "${startFen}"]`), 'PGN carries the start FEN');
+      ok(pgn.includes('1. e4'), 'PGN movetext is SAN');
+      ok(pgn.includes('[%eval 0.30]'), 'PGN includes per-move eval comments');
+      ok(pgn.includes('position becomes lost here'), 'PGN marks the hopeless move');
+      const json = JSON.parse(toJSON(g));
+      eq(json.moves[0].san, 'e4', 'JSON records SAN');
+      eq(json.result.winner, 'w', 'JSON records the winner');
+      eq(json.hopelessPly, 1, 'JSON records the hopeless ply');
+    }
 
     // --- Summary -----------------------------------------------------------
     const summary = document.getElementById('summary');

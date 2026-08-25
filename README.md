@@ -38,6 +38,25 @@ so it runs under a plain `python3 -m http.server` with no special headers.
   This project's own source is MIT; the vendored Stockfish binary remains under
   its GPLv3 terms.
 
+## Move classification
+
+Generated (and hand-annotated) games are classified from a deep, second-pass
+evaluation curve. Centipawns are converted to win probability, and a move is
+labelled by the win-probability **drop** it caused versus the engine's best:
+
+| Drop in win % | Label | Glyph |
+|---|---|---|
+| ≥ 30 | Blunder | `??` |
+| ≥ 20 | Mistake | `?` |
+| ≥ 10 | Inaccuracy | `?!` |
+
+These thresholds and the win% conversion deliberately match **Lichess's**
+scheme, so chess-literate readers recognise them. Two heuristic labels are also
+applied to good moves: **only move** (`□`, the second-best line is far worse)
+and **brilliant** (`!!`, a sound material sacrifice). The brilliant heuristic is
+an **approximation** — it uses a short material-window check and will miss or
+over-fire at the margins; Lichess's own detector looks deeper.
+
 ## Credits
 
 Chess piece graphics are the **Cburnett** set by User:Cburnett (Colin M. L.

@@ -8,6 +8,7 @@ import { showScreen } from './router.js';
 import { createEngine } from '../engine/engine.js';
 import { createAnalyse } from './analyse.js';
 import { createGenerate } from './generate.js';
+import { createResults } from './results.js';
 import { backRankToFEN } from '../core/index.js';
 
 /** @param {string} sel */
@@ -25,7 +26,10 @@ export function initWorkspace() {
   const root = $('#workspace');
   engine = createEngine();
   analyse = createAnalyse(root, engine);
-  createGenerate(root, engine, analyse);
+  const results = createResults(root, engine, analyse);
+  createGenerate(root, engine, analyse, results);
+
+  $('[data-role="annotate"]', root).addEventListener('click', () => results.annotateCurrent());
 
   // Panel tabs: Analyse ⇄ Generate.
   const tabs = [...root.querySelectorAll('[data-tab]')];

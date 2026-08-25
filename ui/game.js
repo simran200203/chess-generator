@@ -29,11 +29,12 @@ export function createGame(engine) {
   /** @type {string[] | null} */
   let legalCache = null;
   let legalCacheFen = '';
-  /** @type {() => void} */
-  let onChange = () => {};
+  /** @type {Set<() => void>} */
+  const subscribers = new Set();
+  const onChange = () => { for (const fn of subscribers) fn(); };
 
-  /** @param {() => void} fn */
-  function subscribe(fn) { onChange = fn; }
+  /** @param {() => void} fn @returns {() => void} unsubscribe */
+  function subscribe(fn) { subscribers.add(fn); return () => subscribers.delete(fn); }
 
   /**
    * Load a starting position, resetting the move list.

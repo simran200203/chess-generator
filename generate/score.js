@@ -11,7 +11,7 @@
  *   moves    string[]
  */
 
-const MATE_CP = 100000;
+export const MATE_CP = 100000;
 
 /** Centipawns for a score line, from the scoring side's own perspective. */
 export function cpFromScore(line) {
